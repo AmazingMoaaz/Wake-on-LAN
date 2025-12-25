@@ -1,79 +1,113 @@
-## Wake-on-LAN Monitor
+# Wake-on-LAN Monitor
 
-A small monitor that pings your target and sends a Wake-on-LAN (WOL) magic packet when the host is down but the network is up. Works on Windows and Linux. Configuration is via environment variables or a `.env` file placed next to `main.py`.
+Automatically wakes up your server when it goes offline. Works on Windows and Linux.
 
-### File structure
-- `main.py` — monitor script
-- `.env` — your local config (not committed)
-- `env.example` — template you can copy from
+## Quick Start
 
-### Configuration (.env)
-Copy `env.example` to `.env` and adjust values:
+1. **Edit `config.json`** with your server details
+2. **Run:** `python3 main.py`
 
+That's it! The script will keep monitoring and wake your server when needed.
+
+---
+
+## Configuration
+
+Edit `config.json` with your settings:
+
+```json
+{
+  "wol_server_ip": "10.10.1.3",
+  "wol_server_mac": "7c:05:69:55:52:d2",
+  "network_check_host": "10.10.1.1",
+  "broadcast_ip": "10.10.1.255",
+  "wol_port": 9,
+  "ping_timeout_ms": 1000,
+  "check_interval_sec": 30,
+  "wol_cooldown_sec": 300
+}
 ```
-# Required
-WOL_SERVER_IP=192.168.1.3
-WOL_SERVER_MAC=7c:05:69:55:52:d2
-NETWORK_CHECK_HOST=192.168.1.1
 
-# Optional
-BROADCAST_IP=192.168.1.255
-WOL_PORT=9
-PING_TIMEOUT_MS=1000
-CHECK_INTERVAL_SEC=30
-WOL_COOLDOWN_SEC=300
-```
+### What Each Setting Does:
 
-### Run locally
-```
-python3 main.py
-```
+| Setting | What It Is | Example |
+|---------|-----------|---------|
+| `wol_server_ip` | Your server's IP address | `10.10.1.3` |
+| `wol_server_mac` | Your server's MAC address | `7c:05:69:55:52:d2` |
+| `network_check_host` | Test IP (usually your router) | `10.10.1.1` |
+| `broadcast_ip` | Your network's broadcast IP | `10.10.1.255` |
+| `wol_port` | WOL port (leave as 9) | `9` |
+| `ping_timeout_ms` | How long to wait for ping | `1000` |
+| `check_interval_sec` | Time between checks | `30` |
+| `wol_cooldown_sec` | Wait time between wake attempts | `300` |
 
-### Ubuntu service setup
-1) Place files
-```
+**All fields are required!**
+
+---
+
+## How to Find Your Settings
+
+**MAC Address:**
+- Windows: Open CMD → type `ipconfig /all` → find "Physical Address"
+- Linux: Open terminal → type `ip link` → look for your network card
+
+**Broadcast IP:**
+- For 10.10.1.x network: `10.10.1.255`
+- For 192.168.1.x network: `192.168.1.255`
+- For 192.168.0.x network: `192.168.0.255`
+- Check your router's IP range if unsure
+
+## Run as Linux Service (Optional)
+
+Want it to run automatically? Follow these steps:
+
+### Step 1: Copy Files
+```bash
 sudo mkdir -p /opt/wol-monitor
-sudo cp main.py /opt/wol-monitor/main.py
-sudo cp .env /opt/wol-monitor/.env
+sudo cp main.py /opt/wol-monitor/
+sudo cp config.json /opt/wol-monitor/
 ```
 
-2) Optional service user
-```
-sudo useradd -r -s /usr/sbin/nologin wolmon || true
-sudo chown -R wolmon:wolmon /opt/wol-monitor
-```
-
-3) systemd unit
-```
-sudo tee /etc/systemd/system/wol-monitor.service >/dev/null << 'EOF'
+### Step 2: Create Service
+```bash
+sudo tee /etc/systemd/system/wol-monitor.service > /dev/null << 'EOF'
 [Unit]
 Description=Wake-on-LAN Monitor
 After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=simple
-User=wolmon
 WorkingDirectory=/opt/wol-monitor
-EnvironmentFile=/opt/wol-monitor/.env
-ExecStart=/usr/bin/python3 /opt/wol-monitor/main.py
+ExecStart=/usr/bin/python3 main.py
 Restart=always
 RestartSec=5
-Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
 EOF
 ```
 
-4) Enable and watch logs
-```
+### Step 3: Start Service
+```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now wol-monitor.service
+```
+
+### Step 4: Check Logs
+```bash
 sudo journalctl -u wol-monitor.service -f
 ```
 
-### Notes
-- Enable WoL in target BIOS/UEFI and NIC. If target is Windows, disable Fast Startup.
-- If your network is not /24, set `BROADCAST_IP` to the correct subnet broadcast.
-- Tune `CHECK_INTERVAL_SEC`, `WOL_COOLDOWN_SEC`, and `PING_TIMEOUT_MS` for your environment.
+---
+
+## Important Notes
+
+### On Your Server (the one being woken up):
+- ✅ Enable Wake-on-LAN in BIOS/UEFI
+- ✅ Enable Wake-on-LAN on your network card
+- ✅ If Windows: Disable "Fast Startup" in Power Options
+
+### Troubleshooting:
+- Script won't start? Check that `config.json` exists and has all fields filled
+- Server won't wake? Make sure it's plugged into power and WOL is enabled in BIOS
+- Wrong broadcast IP? Use `.255` at the end of your network range (e.g., `10.10.1.255` for 10.10.1.x network)

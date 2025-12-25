@@ -1,0 +1,11 @@
+{
+  "wol_server_ip": "10.10.1.3",
+  "wol_server_mac": "7c:05:69:55:52:d2",
+  "network_check_host": "10.10.1.1",
+  "broadcast_ip": "10.10.1.255",
+  "wol_port": 9,
+  "ping_timeout_ms": 500,
+  "check_interval_sec": 10,
+  "wol_cooldown_sec": 5
+}
+
